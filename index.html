@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<title>Robot Arena v0.9.12</title>
+<title>Robot Arena v0.9.13</title>
 <style>
 html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#0a1114;touch-action:none;overscroll-behavior:none;font-family:monospace;color:#fff}
 body{display:grid;place-items:center}
@@ -82,7 +82,8 @@ const arenaCollisionPolys = [
 
 const arenaCollisionCliffs = [
   // Rocky mass below the long west bridge.
-  [[455,545],[520,520],[620,520],[690,570],[675,660],[620,705],[515,700],[455,635]],
+  // v0.9.13: pulled downward so it no longer intrudes into the roadway.
+  [[455,650],[520,625],[610,620],[690,650],[675,725],[620,760],[515,750],[455,700]],
   // South-west outer cliff mass.
   [[0,760],[120,735],[210,760],[255,835],[220,941],[0,941]],
   // South-central lower rock field.
@@ -101,10 +102,24 @@ const arenaCollisionCliffs = [
   [[1210,0],[1375,0],[1410,85],[1370,155],[1280,150],[1215,95]],
 ].map(poly=>poly.map(([x,y])=>({x:ax(x),y:ay(y)})));
 
+
+const arenaSafeCorridors = [
+  // South-west main bridge from Spawn A toward the centre.
+  [[0,585],[675,495],[730,575],[0,710]],
+  // North-east bridge toward Spawn B.
+  [[970,300],[1515,145],[1560,235],[1010,405]],
+  // South-east bridge / road.
+  [[945,520],[1440,650],[1415,750],[910,605]],
+].map(poly=>poly.map(([x,y])=>({x:ax(x),y:ay(y)})));
+
+function inArenaSafeCorridor(x,y){
+  return arenaSafeCorridors.some(poly=>pointInPoly(x,y,poly));
+}
+
 const arenaCollisionSegments = [
   // Rails / cliff lips around the long south-west bridge.
-  {x1:ax(0),y1:ay(585),x2:ax(515),y2:ay(525),t:12},
-  {x1:ax(0),y1:ay(690),x2:ax(520),y2:ay(620),t:12},
+  {x1:ax(0),y1:ay(582),x2:ax(690),y2:ay(495),t:10},
+  {x1:ax(0),y1:ay(705),x2:ax(705),y2:ay(600),t:10},
 
   // Rails around the south-east bridge.
   {x1:ax(980),y1:ay(520),x2:ax(1450),y2:ay(665),t:12},
@@ -114,7 +129,7 @@ const arenaCollisionSegments = [
   {x1:ax(985),y1:ay(325),x2:ax(1515),y2:ay(170),t:11},
   {x1:ax(1015),y1:ay(390),x2:ax(1540),y2:ay(235),t:11},
 
-  // --- v0.9.12: short ruin walls / barricades traced from the test recording ---
+  // --- v0.9.13: short ruin walls / barricades traced from the test recording ---
 
   // Left upper ruins.
   {x1:ax(35),y1:ay(310),x2:ax(175),y2:ay(290),t:15},
@@ -315,7 +330,7 @@ function finalizeTerrain(){
 }
 function buildMap(){
   terrain.length=0; decorObjects.length=0; walls.length=0; outposts.length=0; bridgeSet.clear();
-  // v0.9.12: visual arena is the new desert-fortress concept map.
+  // v0.9.13: visual arena is the new desert-fortress concept map.
   // Terrain stays collision-free for this first integration pass; collision mask comes next.
   for(let y=0;y<MAP_H;y++){
     terrain[y]=[];
@@ -414,7 +429,14 @@ function circleSegmentPush(obj,s){
 }
 function pointInArenaCollision(x,y){
   if(state.mapMode!=='arena') return false;
-  for(const poly of arenaCollisionPolys) if(pointInPoly(x,y,poly)) return true; for(const poly of arenaCollisionCliffs) if(pointInPoly(x,y,poly)) return true;
+  for(const poly of arenaCollisionPolys) if(pointInPoly(x,y,poly)) return true; if(!inArenaSafeCorridor(x,y)){ for(const poly of arenaCollisionCliffs) if(pointInPoly(x,y,poly)) return true; }
+  for(const poly of arenaSafeCorridors){
+    ctx.beginPath();
+    poly.forEach((q,i)=>{ const p=worldToScreen(q.x,q.y); if(i===0)ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
+    ctx.closePath();
+    ctx.fillStyle='rgba(60,220,255,.035)'; ctx.fill();
+    ctx.strokeStyle='rgba(90,225,255,.55)'; ctx.lineWidth=1; ctx.stroke();
+  }
   for(const poly of arenaCollisionCliffs){
     ctx.beginPath();
     poly.forEach((q,i)=>{ const p=worldToScreen(q.x,q.y); if(i===0)ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
@@ -432,7 +454,7 @@ function resolveArenaCollision(obj){
   if(state.mapMode!=='arena') return;
   // Two passes greatly reduce tunnelling at corners without making movement sticky.
   for(let pass=0;pass<2;pass++){
-    for(const poly of arenaCollisionPolys) circlePolyPush(obj,poly); for(const poly of arenaCollisionCliffs) circlePolyPush(obj,poly);
+    for(const poly of arenaCollisionPolys) circlePolyPush(obj,poly); if(!inArenaSafeCorridor(obj.x,obj.y)){ for(const poly of arenaCollisionCliffs) circlePolyPush(obj,poly); }
     for(const s of arenaCollisionSegments) circleSegmentPush(obj,s);
   }
 }
@@ -887,7 +909,7 @@ function drawWorld(){
 function drawHUD(){
   ctx.fillStyle='#06080b'; ctx.fillRect(7,7,104,12); ctx.fillStyle='#242b31'; ctx.fillRect(9,9,100,8); ctx.fillStyle=player.hp>35?'#58a968':'#ba5151'; ctx.fillRect(9,9,100*(player.hp/player.maxHp),8);
   ctx.fillStyle='#f0f2f2'; ctx.font='10px monospace'; ctx.fillText(`HP ${Math.ceil(player.hp)}/${player.maxHp}`,11,18); ctx.fillText(`УР. ${state.level}`,7,33); ctx.fillText(state.mapMode==='grass'?'ПОЛИГОН: БЕЗ ВРАГОВ':`ВОЛНА ${Math.max(1,state.wave)}  УНИЧТ. ${state.kills}`,7,46);
-  const barW=Math.min(125,W-14); ctx.fillStyle='#111519'; ctx.fillRect(7,54,barW,7); ctx.fillStyle='#d7b15e'; ctx.fillRect(8,55,(barW-2)*(state.xp/state.xpNeed),5); ctx.fillStyle='#e0d1a1'; ctx.fillText(`ДЕТАЛИ ${state.xp}/${state.xpNeed}`,7,72); ctx.fillStyle='#d9e0d3'; ctx.fillText('v0.9.12',W-38,14); if(state.noticeTimer>0){ ctx.textAlign='center'; ctx.fillStyle='#fff1a8'; ctx.font='bold 9px monospace'; ctx.fillText(state.notice,W/2,34); ctx.textAlign='left'; }
+  const barW=Math.min(125,W-14); ctx.fillStyle='#111519'; ctx.fillRect(7,54,barW,7); ctx.fillStyle='#d7b15e'; ctx.fillRect(8,55,(barW-2)*(state.xp/state.xpNeed),5); ctx.fillStyle='#e0d1a1'; ctx.fillText(`ДЕТАЛИ ${state.xp}/${state.xpNeed}`,7,72); ctx.fillStyle='#d9e0d3'; ctx.fillText('v0.9.13',W-38,14); if(state.noticeTimer>0){ ctx.textAlign='center'; ctx.fillStyle='#fff1a8'; ctx.font='bold 9px monospace'; ctx.fillText(state.notice,W/2,34); ctx.textAlign='left'; }
 }
 function drawMiniMap(){
   const mw=72,mh=41,x=W-mw-7,y=24; ctx.globalAlpha=.90; ctx.fillStyle='#17130f'; ctx.fillRect(x,y,mw,mh); ctx.strokeStyle='#d5dbc9'; ctx.lineWidth=1; ctx.strokeRect(x+.5,y+.5,mw-1,mh-1);
@@ -915,10 +937,10 @@ function drawActionButtons(){
 function drawMenu(){
   for(let y=0;y<H;y+=32) for(let x=0;x<W;x+=32) drawTileFromSheet('grass',hash(x/32,y/32)%16,x,y,32,32);
   ctx.fillStyle='rgba(5,10,8,.72)'; ctx.fillRect(0,0,W,H);
-  ctx.textAlign='center'; ctx.fillStyle='#f2f2e8'; ctx.font='bold 22px monospace'; ctx.fillText('ROBOT ARENA',W/2,48); ctx.fillStyle='#d7b85d'; ctx.font='10px monospace'; ctx.fillText('v0.9.12',W/2,65); ctx.fillStyle='#aeb8ad'; ctx.fillText('ВЫБЕРИ РЕЖИМ',W/2,88);
+  ctx.textAlign='center'; ctx.fillStyle='#f2f2e8'; ctx.font='bold 22px monospace'; ctx.fillText('ROBOT ARENA',W/2,48); ctx.fillStyle='#d7b85d'; ctx.font='10px monospace'; ctx.fillText('v0.9.13',W/2,65); ctx.fillStyle='#aeb8ad'; ctx.fillText('ВЫБЕРИ РЕЖИМ',W/2,88);
   if(H>W&&sheetImages['robotWalk']&&tileRects['robotWalk']){ const r=tileRects['robotWalk'][24]; const im=sheetImages['robotWalk']; ctx.drawImage(im,r.sx,r.sy,r.sw,r.sh,W/2-32,104,64,64); }
   for(const b of getMenuButtons()){
-    ctx.fillStyle=b.id==='grass'?'#203022':'#18231d'; ctx.fillRect(b.x,b.y,b.w,b.h); ctx.strokeStyle=b.id==='grass'?'#7da46f':'#819087'; ctx.lineWidth=1; ctx.strokeRect(b.x+.5,b.y+.5,b.w-1,b.h-1); ctx.fillStyle='#eef1eb'; ctx.font='bold 10px monospace'; ctx.fillText(b.label,b.x+b.w/2,b.y+14); ctx.fillStyle='#a8b0a8'; ctx.font='8px monospace'; if(b.id==='arena') ctx.fillText('ПУСТЫННАЯ БАЗА • КОЛЛИЗИИ V2 • ЦЕЛИ',b.x+b.w/2,b.y+27); else if(b.id==='grass') ctx.fillText('ЧИСТАЯ ТРАВА ДЛЯ ТЕСТОВ',b.x+b.w/2,b.y+27); else if(b.id==='restart') ctx.fillText('СБРОСИТЬ ТЕКУЩИЙ ЗАБЕГ',b.x+b.w/2,b.y+27); else ctx.fillText('ВЕРНУТЬСЯ В ИГРУ',b.x+b.w/2,b.y+27);
+    ctx.fillStyle=b.id==='grass'?'#203022':'#18231d'; ctx.fillRect(b.x,b.y,b.w,b.h); ctx.strokeStyle=b.id==='grass'?'#7da46f':'#819087'; ctx.lineWidth=1; ctx.strokeRect(b.x+.5,b.y+.5,b.w-1,b.h-1); ctx.fillStyle='#eef1eb'; ctx.font='bold 10px monospace'; ctx.fillText(b.label,b.x+b.w/2,b.y+14); ctx.fillStyle='#a8b0a8'; ctx.font='8px monospace'; if(b.id==='arena') ctx.fillText('ПУСТЫННАЯ БАЗА • BRIDGE FIX • КОЛЛИЗИИ',b.x+b.w/2,b.y+27); else if(b.id==='grass') ctx.fillText('ЧИСТАЯ ТРАВА ДЛЯ ТЕСТОВ',b.x+b.w/2,b.y+27); else if(b.id==='restart') ctx.fillText('СБРОСИТЬ ТЕКУЩИЙ ЗАБЕГ',b.x+b.w/2,b.y+27); else ctx.fillText('ВЕРНУТЬСЯ В ИГРУ',b.x+b.w/2,b.y+27);
   }
   ctx.textAlign='left';
 }
