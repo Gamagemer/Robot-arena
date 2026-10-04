@@ -143,43 +143,81 @@ function buildMap(){
   terrain.length=0; decorObjects.length=0; walls.length=0; outposts.length=0; bridgeSet.clear();
   for(let y=0;y<MAP_H;y++){ terrain[y]=[]; for(let x=0;x<MAP_W;x++) terrain[y][x]=makeTile('grass'); }
 
+  // River and ponds
   paintRectTiles(39,0,4,11,'water'); paintRectTiles(38,10,5,7,'water'); paintRectTiles(37,16,6,8,'water'); paintRectTiles(36,23,5,8,'water'); paintRectTiles(36,31,4,9,'water'); paintRectTiles(35,39,5,7,'water');
-  paintEllipse(17,11,4.3,3.2,'water');
+  paintEllipse(17,11,4.2,3.0,'water');
+  paintEllipse(51,6,3.8,2.7,'water');
 
+  // Cliffs / high ground
   paintRectTiles(7,5,14,4,'cliff'); paintRectTiles(7,9,2,6,'cliff'); paintRectTiles(19,9,2,5,'cliff');
   paintRectTiles(26,30,8,4,'cliff'); paintRectTiles(26,34,2,4,'cliff'); paintRectTiles(32,34,2,3,'cliff');
   paintRectTiles(46,8,9,3,'cliff'); paintRectTiles(46,11,2,5,'cliff'); paintRectTiles(53,11,2,4,'cliff');
 
-  paintRectTiles(4,36,9,5,'path'); paintRectTiles(21,37,4,4,'path');
-  paintPath([[3,42],[11,42],[11,35],[18,35],[18,27],[27,27],[27,22],[39,22]],1);
-  paintPath([[18,35],[18,27],[16,27],[16,22],[17,22],[17,15]],0);
+  // Main roads
+  paintPath([[3,42],[9,42],[9,38],[14,38],[14,34],[18,34],[18,27],[27,27],[27,22],[36,22]],1);
+  paintPath([[36,22],[39,22],[43,22],[47,22],[47,18],[54,18]],1);
+  paintPath([[47,22],[47,30],[52,30],[55,30]],1);
+  paintPath([[18,34],[10,34],[10,30],[9,30]],1);
+  paintPath([[18,27],[16,27],[16,21],[17,21],[17,15]],0);
   paintPath([[18,27],[10,27],[10,21],[8,21],[8,16]],0);
-  paintPath([[39,22],[48,22],[48,17],[54,17]],1);
-  paintPath([[48,22],[48,33],[55,33]],0);
+  paintPath([[47,18],[47,14],[50,14],[50,9]],0);
+  paintPath([[44,31],[44,36],[47,36],[51,36]],0);
+  paintPath([[33,39],[39,39],[39,35]],0);
 
-  for(let y=36;y<41;y++) for(let x=4;x<13;x++) if((x+y)%2===0) terrain[y][x].base='grass';
-  for(let y=37;y<41;y++) for(let x=21;x<25;x++) if((x+y)%2===0) terrain[y][x].base='grass';
+  // Open glades / meadows
+  for(let y=36;y<44;y++) for(let x=2;x<18;x++) if((x+y)%5===0) terrain[y][x].variant=(terrain[y][x].variant+3)%16;
+  for(let y=26;y<37;y++) for(let x=42;x<55;x++) if((x*y)%7===0) terrain[y][x].variant=(terrain[y][x].variant+5)%16;
 
+  // Bridges
   addBridge(36,22,4,false); addBridge(38,12,4,true);
 
+  // Village A
   addHouse(7,37,0); addHouse(11,36,2); addBarn(6,32);
   addFenceHorizontal(4,31,11); addFenceVertical(4,31,5); addFenceVertical(14,31,3); addFenceHorizontal(4,35,6); addDecor('fenceGateH',10*TILE,35*TILE,{});
+  paintPath([[10,35],[10,34],[9,34]],0);
+  paintPath([[12,38],[12,37],[12,36]],0);
+  paintPath([[8,34],[8,33],[8,32]],0);
 
+  // Village B
   addHouse(44,29,1); addBarn(48,29);
   addFenceHorizontal(43,28,9); addFenceVertical(43,28,7); addFenceVertical(51,28,4); addFenceHorizontal(43,34,5); addDecor('fenceGateH',48*TILE,34*TILE,{});
+  paintPath([[48,34],[48,31],[47,31]],0);
+  paintPath([[45,31],[45,30]],0);
+  paintPath([[49,31],[49,30]],0);
 
+  // Cliffside cabin
   addHouse(10,3,0); addDecor('board',15*TILE+6,13*TILE+8,{});
-  [['barrels',6,30],['crateStack',13,34],['lantern',15,35],['signArrow',12,30],['barrels',45,35],['crateBarrel',50,27],['lantern',49,35],['board',52,31],['crate',16,21],['lantern',18,21],['sign',20,26],['crateBarrel',30,28],['barrels',33,36],['signArrow',34,41],['lantern',29,39],['crate',55,17]].forEach(([type,tx,ty])=>addDecor(type,tx*TILE+8,ty*TILE+8,{}));
+  paintPath([[11,5],[11,9],[12,9],[12,12],[15,12]],0);
+
+  // Props
+  [['barrels',6,30],['crateStack',13,34],['lantern',15,35],['signArrow',12,30],['barrels',45,35],['crateBarrel',50,27],['lantern',49,35],['board',52,31],['crate',16,21],['lantern',18,21],['sign',20,26],['crateBarrel',30,28],['barrels',33,36],['signArrow',34,41],['lantern',29,39],['crate',55,17],['rock',51,7],['bush',42,20],['bush',43,20],['signArrow',41,22]].forEach(([type,tx,ty])=>addDecor(type,tx*TILE+8,ty*TILE+8,{}));
 
   function treeCluster(cx,cy,rx,ry,count){ for(let i=0;i<count;i++){ const px=(cx+rand(-rx,rx))*TILE, py=(cy+rand(-ry,ry))*TILE; addDecor('tree',px,py,{kind:hash(Math.floor(px),Math.floor(py))%5}); } }
-  treeCluster(4,7,3,4,12); treeCluster(24,7,3,4,10); treeCluster(30,12,4,5,15); treeCluster(57,8,3,4,12); treeCluster(56,38,4,5,18); treeCluster(26,42,8,2,18); treeCluster(15,18,3,3,10); treeCluster(31,4,3,4,10);
-  for(let i=0;i<120;i++) addDecor('bush',hash(i,17)%WORLD_W,hash(i,31)%WORLD_H,{kind:5+(i%5)});
-  for(let i=0;i<60;i++) addDecor('rock',hash(i,91)%WORLD_W,hash(i,101)%WORLD_H,{kind:15+(i%5)});
-  for(let i=0;i<26;i++) addDecor('stump',hash(i,171)%WORLD_W,hash(i,181)%WORLD_H,{kind:10+(i%3)});
-  for(let i=0;i<18;i++) addDecor('reed',hash(i,271)%WORLD_W,hash(i,301)%WORLD_H,{kind:13+(i%2)});
+  treeCluster(4,7,3,4,12); treeCluster(24,7,3,4,10); treeCluster(30,12,4,5,15); treeCluster(57,8,3,4,12); treeCluster(56,38,4,5,18); treeCluster(26,42,8,2,18); treeCluster(15,18,3,3,10); treeCluster(31,4,3,4,10); treeCluster(50,41,5,3,12);
+
+  // Scattered decor kept away from core roads
+  for(let i=0;i<110;i++){
+    const x=hash(i,17)%WORLD_W, y=hash(i,31)%WORLD_H; if(!pointNearRoad(x,y,18)) addDecor('bush',x,y,{kind:5+(i%5)});
+  }
+  for(let i=0;i<56;i++){
+    const x=hash(i,91)%WORLD_W, y=hash(i,101)%WORLD_H; if(!pointNearRoad(x,y,14)) addDecor('rock',x,y,{kind:15+(i%5)});
+  }
+  for(let i=0;i<22;i++){
+    const x=hash(i,171)%WORLD_W, y=hash(i,181)%WORLD_H; if(!pointNearRoad(x,y,12)) addDecor('stump',x,y,{kind:10+(i%3)});
+  }
+  for(let i=0;i<16;i++){
+    const x=hash(i,271)%WORLD_W, y=hash(i,301)%WORLD_H; if(inWater(x,y) || pointNearRoad(x,y,8)) continue; addDecor('reed',x,y,{kind:13+(i%2)});
+  }
 
   [[2,4,1.1,4.8],[22,10,1.9,5.3],[34,18,2.6,4.9],[58,10,3.0,5.1],[58,40,3.3,4.7],[24,42,2.3,4.6]].forEach(([tx,ty,timer,rate])=>outposts.push({x:tx*TILE+16,y:ty*TILE+16,timer,rate}));
   finalizeTerrain();
+}
+function pointNearRoad(x,y,dist){
+  const tx=Math.floor(x/TILE), ty=Math.floor(y/TILE), d=Math.ceil(dist/TILE);
+  for(let yy=ty-d;yy<=ty+d;yy++) for(let xx=tx-d;xx<=tx+d;xx++){
+    const t=tileAt(xx,yy); if(t&&t.base==='path') return true;
+  }
+  return false;
 }
 function updateCamera(snap=false){ const tx=clamp(player.x-W/2,0,WORLD_W-W), ty=clamp(player.y-H/2,0,WORLD_H-H); if(snap){camera.x=tx; camera.y=ty;} else {camera.x+=(tx-camera.x)*0.14; camera.y+=(ty-camera.y)*0.14;} }
 function tileBlocks(tx,ty){ const t=tileAt(tx,ty); if(!t) return true; if(t.base==='water'&&!isBridge(tx,ty)) return true; if(t.base==='cliff') return true; return false; }
@@ -365,7 +403,7 @@ function drawWorld(){
 function drawHUD(){
   ctx.fillStyle='#06080b'; ctx.fillRect(7,7,104,12); ctx.fillStyle='#242b31'; ctx.fillRect(9,9,100,8); ctx.fillStyle=player.hp>35?'#58a968':'#ba5151'; ctx.fillRect(9,9,100*(player.hp/player.maxHp),8);
   ctx.fillStyle='#f0f2f2'; ctx.font='10px monospace'; ctx.fillText(`HP ${Math.ceil(player.hp)}/${player.maxHp}`,11,18); ctx.fillText(`УР. ${state.level}`,7,33); ctx.fillText(`УНИЧТОЖЕНО: ${state.kills}`,7,46);
-  const barW=Math.min(125,W-14); ctx.fillStyle='#111519'; ctx.fillRect(7,54,barW,7); ctx.fillStyle='#d7b15e'; ctx.fillRect(8,55,(barW-2)*(state.xp/state.xpNeed),5); ctx.fillStyle='#e0d1a1'; ctx.fillText(`ДЕТАЛИ ${state.xp}/${state.xpNeed}`,7,72); ctx.fillStyle='#d9e0d3'; ctx.fillText('v0.9',W-30,14);
+  const barW=Math.min(125,W-14); ctx.fillStyle='#111519'; ctx.fillRect(7,54,barW,7); ctx.fillStyle='#d7b15e'; ctx.fillRect(8,55,(barW-2)*(state.xp/state.xpNeed),5); ctx.fillStyle='#e0d1a1'; ctx.fillText(`ДЕТАЛИ ${state.xp}/${state.xpNeed}`,7,72); ctx.fillStyle='#d9e0d3'; ctx.fillText('v0.9.1',W-38,14);
 }
 function drawMiniMap(){
   const mw=64,mh=44,x=W-mw-7,y=24; ctx.globalAlpha=.88; ctx.fillStyle='#17261a'; ctx.fillRect(x,y,mw,mh); ctx.strokeStyle='#d5dbc9'; ctx.lineWidth=1; ctx.strokeRect(x+.5,y+.5,mw-1,mh-1);
