@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<title>Robot Arena v0.9.10</title>
+<title>Robot Arena v0.9.11</title>
 <style>
 html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#0a1114;touch-action:none;overscroll-behavior:none;font-family:monospace;color:#fff}
 body{display:grid;place-items:center}
@@ -30,7 +30,7 @@ const terrain = [], decorObjects = [], walls = [], outposts = [];
 const bridgeSet = new Set();
 const tileRects = {};
 const sheetImages = {};
-const state = {score:0,kills:0,time:0,shake:0,gameOver:false,pausedForUpgrade:false,level:1,xp:0,xpNeed:5,loaded:false,screen:'menu',mapMode:'arena',gameStarted:false,wave:0,waveTimer:1.6,waveRemaining:0,spawnTimer:0,notice:'',noticeTimer:0};
+const state = {score:0,kills:0,time:0,shake:0,gameOver:false,pausedForUpgrade:false,level:1,xp:0,xpNeed:5,loaded:false,screen:'menu',mapMode:'arena',gameStarted:false,wave:0,waveTimer:1.6,waveRemaining:0,spawnTimer:0,notice:'',noticeTimer:0,collisionDebug:true};
 const player = {x:10.5*TILE,y:40.5*TILE,r:12,hp:100,maxHp:100,speed:88,damage:15,fireRate:7.5,bulletSpeed:240,fireCooldown:0,bodyAngle:0,turretAngle:0,walkAnim:0,isMoving:false,facing:'up',mode:'walk',transformTime:0,fireVisual:0};
 const camera = {x:0,y:0};
 const leftStick = {active:false,id:null,sx:55,sy:220,dx:0,dy:0};
@@ -41,7 +41,7 @@ const ARENA_MAP_SRC = "data:image/webp;base64,UklGRv7OXQBXRUJQVlA4IPLOXQCwljWdAS
 const arenaSpawnA = {x:5*TILE,y:24.5*TILE};
 const arenaSpawnB = {x:57.5*TILE,y:7*TILE};
 const arenaObjectives = [
-  {id:'center',x:32.2*TILE,y:13.9*TILE,r:72,type:'main',label:'ЦЕНТР',capture:0,captured:false},
+  {id:'center',x:32.2*TILE,y:18.4*TILE,r:58,type:'main',label:'ЦЕНТР',capture:0,captured:false},
   {id:'northwest',x:8*TILE,y:3.8*TILE,r:54,type:'secondary',label:'СЕВЕРНЫЙ УЗЕЛ',capture:0,captured:false},
   {id:'southeast',x:55.5*TILE,y:26.4*TILE,r:54,type:'secondary',label:'ЮЖНЫЙ УЗЕЛ',capture:0,captured:false}
 ];
@@ -49,6 +49,49 @@ const arenaResources = [
   {x:16.5*TILE,y:11.8*TILE,r:17,type:'parts',active:true,timer:0,label:'ДЕТАЛИ'},
   {x:52.4*TILE,y:14.5*TILE,r:17,type:'repair',active:true,timer:0,label:'РЕМОНТ'},
   {x:40.2*TILE,y:26.8*TILE,r:17,type:'energy',active:true,timer:0,label:'ЭНЕРГИЯ'}
+];
+
+const ARENA_ART_W=1672, ARENA_ART_H=941;
+const ax=x=>x/ARENA_ART_W*WORLD_W, ay=y=>y/ARENA_ART_H*WORLD_H;
+const arenaCollisionPolys = [
+  // Central command building.
+  [[680,320],[740,295],[930,310],[1005,345],[1000,430],[930,470],[760,470],[675,425]],
+  // Fortified circular structure / canyon lip south of the command building.
+  [[710,505],[805,485],[930,500],[970,550],[960,610],[900,635],[780,625],[700,575]],
+  // North-west hangar superstructure.
+  [[0,20],[360,15],[470,80],[465,145],[390,180],[60,175],[0,145]],
+  // West mid-map wall/ruin island.
+  [[300,410],[405,395],[500,430],[490,500],[385,515],[300,470]],
+  // West upper defensive structure.
+  [[500,115],[610,105],[700,155],[695,245],[620,280],[510,225]],
+  // North-centre ruin / bunker.
+  [[790,165],[900,145],[1040,185],[1040,265],[925,285],[805,250]],
+  // East mid-map defensive island.
+  [[1015,420],[1115,400],[1210,430],[1205,505],[1100,525],[1010,485]],
+  // East flank wall complex.
+  [[1200,335],[1350,315],[1465,360],[1450,440],[1335,455],[1215,410]],
+  // North-east command / antenna superstructure (spawn platform remains open below it).
+  [[1445,10],[1672,10],[1672,150],[1600,180],[1470,155]],
+  // South-west radar superstructure, leaving Spawn A accessible.
+  [[0,480],[115,470],[215,505],[205,590],[115,610],[0,585]],
+  // South-east tower core, leaving the secondary objective to its west accessible.
+  [[1510,555],[1672,550],[1672,735],[1585,745],[1515,690]],
+  // Southern central ruin cluster.
+  [[700,730],[820,705],[960,735],[980,805],[885,835],[745,815]],
+].map(poly=>poly.map(([x,y])=>({x:ax(x),y:ay(y)})));
+
+const arenaCollisionSegments = [
+  // Rails / cliff lips around the long south-west bridge.
+  {x1:ax(0),y1:ay(585),x2:ax(515),y2:ay(525),t:12},
+  {x1:ax(0),y1:ay(690),x2:ax(520),y2:ay(620),t:12},
+
+  // Rails around the south-east bridge.
+  {x1:ax(980),y1:ay(520),x2:ax(1450),y2:ay(665),t:12},
+  {x1:ax(945),y1:ay(585),x2:ax(1415),y2:ay(735),t:12},
+
+  // Rails around the north-east bridge.
+  {x1:ax(985),y1:ay(325),x2:ax(1515),y2:ay(170),t:11},
+  {x1:ax(1015),y1:ay(390),x2:ax(1540),y2:ay(235),t:11},
 ];
 
 const upgrades = [
@@ -188,7 +231,7 @@ function finalizeTerrain(){
 }
 function buildMap(){
   terrain.length=0; decorObjects.length=0; walls.length=0; outposts.length=0; bridgeSet.clear();
-  // v0.9.10: visual arena is the new desert-fortress concept map.
+  // v0.9.11: visual arena is the new desert-fortress concept map.
   // Terrain stays collision-free for this first integration pass; collision mask comes next.
   for(let y=0;y<MAP_H;y++){
     terrain[y]=[];
@@ -236,7 +279,77 @@ function circleRectPush(obj,r){
   return false;
 }
 function resolveTileCollision(obj){ const minTX=Math.floor((obj.x-obj.r)/TILE)-1,maxTX=Math.floor((obj.x+obj.r)/TILE)+1,minTY=Math.floor((obj.y-obj.r)/TILE)-1,maxTY=Math.floor((obj.y+obj.r)/TILE)+1; for(let ty=minTY;ty<=maxTY;ty++) for(let tx=minTX;tx<=maxTX;tx++) if(tileBlocks(tx,ty)) circleRectPush(obj,{x:tx*TILE,y:ty*TILE,w:TILE,h:TILE}); }
-function pointInWall(x,y){ if(tileBlocks(Math.floor(x/TILE),Math.floor(y/TILE))) return true; for(const r of walls) if(x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h) return true; return false; }
+
+function pointInPoly(x,y,poly){
+  let inside=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const a=poly[i], b=poly[j];
+    const hit=((a.y>y)!=(b.y>y)) && (x < (b.x-a.x)*(y-a.y)/(b.y-a.y+1e-9)+a.x);
+    if(hit) inside=!inside;
+  }
+  return inside;
+}
+function closestOnSegment(px,py,x1,y1,x2,y2){
+  const vx=x2-x1, vy=y2-y1, ll=vx*vx+vy*vy;
+  let t=ll?((px-x1)*vx+(py-y1)*vy)/ll:0; t=clamp(t,0,1);
+  return {x:x1+vx*t,y:y1+vy*t};
+}
+function nearestPolyPoint(x,y,poly){
+  let best=null, bestD=Infinity;
+  for(let i=0;i<poly.length;i++){
+    const a=poly[i], b=poly[(i+1)%poly.length], p=closestOnSegment(x,y,a.x,a.y,b.x,b.y);
+    const dx=x-p.x,dy=y-p.y,d=dx*dx+dy*dy;
+    if(d<bestD){bestD=d;best=p;}
+  }
+  return {p:best,d:Math.sqrt(bestD)};
+}
+function circlePolyPush(obj,poly){
+  const inside=pointInPoly(obj.x,obj.y,poly), n=nearestPolyPoint(obj.x,obj.y,poly);
+  if(!inside && n.d>=obj.r) return false;
+  let dx=obj.x-n.p.x,dy=obj.y-n.p.y,d=Math.hypot(dx,dy);
+  if(d<.001){
+    const c=poly.reduce((s,p)=>({x:s.x+p.x,y:s.y+p.y}),{x:0,y:0});
+    c.x/=poly.length;c.y/=poly.length; dx=obj.x-c.x;dy=obj.y-c.y;d=Math.hypot(dx,dy)||1;
+  }
+  dx/=d;dy/=d;
+  if(inside){ obj.x=n.p.x-dx*obj.r; obj.y=n.p.y-dy*obj.r; }
+  else { const push=obj.r-n.d; obj.x+=dx*push; obj.y+=dy*push; }
+  return true;
+}
+function circleSegmentPush(obj,s){
+  const p=closestOnSegment(obj.x,obj.y,s.x1,s.y1,s.x2,s.y2), dx=obj.x-p.x,dy=obj.y-p.y;
+  const d=Math.hypot(dx,dy), need=obj.r+s.t*.5;
+  if(d>=need) return false;
+  if(d<.001){
+    const vx=s.x2-s.x1,vy=s.y2-s.y1,vl=Math.hypot(vx,vy)||1;
+    obj.x+=(-vy/vl)*need; obj.y+=(vx/vl)*need;
+  }else{
+    const q=(need-d)/d; obj.x+=dx*q; obj.y+=dy*q;
+  }
+  return true;
+}
+function pointInArenaCollision(x,y){
+  if(state.mapMode!=='arena') return false;
+  for(const poly of arenaCollisionPolys) if(pointInPoly(x,y,poly)) return true;
+  for(const s of arenaCollisionSegments){
+    const p=closestOnSegment(x,y,s.x1,s.y1,s.x2,s.y2);
+    if(Math.hypot(x-p.x,y-p.y)<=s.t*.5) return true;
+  }
+  return false;
+}
+function resolveArenaCollision(obj){
+  if(state.mapMode!=='arena') return;
+  // Two passes greatly reduce tunnelling at corners without making movement sticky.
+  for(let pass=0;pass<2;pass++){
+    for(const poly of arenaCollisionPolys) circlePolyPush(obj,poly);
+    for(const s of arenaCollisionSegments) circleSegmentPush(obj,s);
+  }
+}
+function pointInWall(x,y){
+  if(tileBlocks(Math.floor(x/TILE),Math.floor(y/TILE))) return true;
+  for(const r of walls) if(x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h) return true;
+  return pointInArenaCollision(x,y);
+}
 function burst(x,y,type,count=7){ for(let i=0;i<count;i++){ const a=Math.random()*Math.PI*2, s=rand(20,90); particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:rand(.12,.52),maxLife:.52,type}); } }
 function explode(x,y){ state.shake=Math.max(state.shake,5); burst(x,y,'spark',12); burst(x,y,'smoke',8); }
 function spawnEnemyFrom(s){ if(enemies.length>=26) return; const a=Math.random()*Math.PI*2, r=20+Math.random()*18; enemies.push({x:clamp(s.x+Math.cos(a)*r,12,WORLD_W-12),y:clamp(s.y+Math.sin(a)*r,12,WORLD_H-12),r:9,hp:34,maxHp:34,speed:29+rand(-2,7),fireCooldown:rand(.2,1.2),fireRate:.72+rand(-.08,.16),angle:0,hitFlash:0,fireVisual:0}); burst(s.x,s.y,'spawn',8); }
@@ -340,6 +453,7 @@ function angleToFacing(a){
 function pointInRectP(p,r){ return p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h; }
 function getMenuButton(){ return {x:W/2-22,y:6,w:44,h:17}; }
 function getFortressButton(){ return {x:W/2-38,y:H-62,w:76,h:26}; }
+function getCollisionButton(){ return {x:W-59,y:73,w:52,h:17}; }
 function getMenuButtons(){
   const w=Math.min(220,W-28), h=34, gap=7, items=[];
   if(state.gameStarted){ items.push({id:'continue',label:'ПРОДОЛЖИТЬ'}); items.push({id:'restart',label:'НАЧАТЬ ЗАНОВО'}); }
@@ -359,7 +473,7 @@ addEventListener('keydown', e => {
     if(e.code==='Digit2') startMap('grass');
     return;
   }
-  if(e.code==='KeyF') toggleFortress();
+  if(e.code==='KeyF') toggleFortress(); if(e.code==='KeyC'&&state.mapMode==='arena') state.collisionDebug=!state.collisionDebug;
   if(state.gameOver&&(e.code==='Enter'||e.code==='Space')) resetGame();
   if(state.pausedForUpgrade){ if(e.code==='Digit1') chooseUpgrade(0); if(e.code==='Digit2') chooseUpgrade(1); if(e.code==='Digit3') chooseUpgrade(2); }
 });
@@ -380,6 +494,7 @@ canvas.addEventListener('pointerdown', e => {
   }
   if(pointInRectP(p,getMenuButton())){ openMenu(); return; }
   if(pointInRectP(p,getFortressButton())){ toggleFortress(); return; }
+  if(state.mapMode==='arena'&&pointInRectP(p,getCollisionButton())){ state.collisionDebug=!state.collisionDebug; giveArenaNotice(state.collisionDebug?'КОЛЛИЗИИ: ПОКАЗАТЬ':'КОЛЛИЗИИ: СКРЫТЬ'); return; }
   if(state.gameOver){ resetGame(); return; }
   if(state.pausedForUpgrade){ const cards=getUpgradeCards(); for(let i=0;i<cards.length;i++){ const c=cards[i]; if(p.x>=c.x&&p.x<=c.x+c.w&&p.y>=c.y&&p.y<=c.y+c.h){ chooseUpgrade(i); return; } } return; }
   if(e.pointerType==='mouse'){ mouseDown=true; mouseX=p.x; mouseY=p.y; return; }
@@ -420,7 +535,7 @@ function update(dt){
     else player.facing = my < 0 ? 'up' : 'down';
   } else { player.walkAnim = 0; }
   player.x=clamp(player.x,12,WORLD_W-12); player.y=clamp(player.y,12,WORLD_H-12);
-  for(const r of walls) circleRectPush(player,r); resolveTileCollision(player);
+  for(const r of walls) circleRectPush(player,r); resolveTileCollision(player); resolveArenaCollision(player);
 
   let firing=mouseDown;
   if(rightStick.active){ const mag=Math.hypot(rightStick.dx,rightStick.dy); if(mag>.18){ player.turretAngle=Math.atan2(rightStick.dy,rightStick.dx); firing=true; } }
@@ -446,7 +561,7 @@ function update(dt){
     const a=Math.atan2(player.y-e.y,player.x-e.x), d=Math.hypot(player.x-e.x,player.y-e.y);
     let vx=0,vy=0; if(d>82){ vx=Math.cos(a)*e.speed; vy=Math.sin(a)*e.speed; } else if(d<58){ vx=-Math.cos(a)*e.speed*.5; vy=-Math.sin(a)*e.speed*.5; }
     for(let j=0;j<enemies.length;j++){ if(i===j) continue; const o=enemies[j], dx=e.x-o.x, dy=e.y-o.y, dd=dx*dx+dy*dy; if(dd>0&&dd<24*24){ const q=Math.sqrt(dd); vx+=(dx/q)*18; vy+=(dy/q)*18; } }
-    e.x+=vx*dt; e.y+=vy*dt; e.angle=a; e.x=clamp(e.x,10,WORLD_W-10); e.y=clamp(e.y,10,WORLD_H-10); for(const r of walls) circleRectPush(e,r); resolveTileCollision(e);
+    e.x+=vx*dt; e.y+=vy*dt; e.angle=a; e.x=clamp(e.x,10,WORLD_W-10); e.y=clamp(e.y,10,WORLD_H-10); for(const r of walls) circleRectPush(e,r); resolveTileCollision(e); resolveArenaCollision(e);
     if(d<145&&e.fireCooldown<=0) shootEnemy(e); if(d<player.r+e.r+2) damagePlayer(18*dt);
   }
 
@@ -605,6 +720,27 @@ function drawArenaCircle(x,y,r,color,fillAlpha=.12){
   ctx.globalAlpha=.92; ctx.strokeStyle=color; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2); ctx.stroke();
   ctx.restore();
 }
+function drawArenaCollisionDebug(){
+  if(state.mapMode!=='arena'||!state.collisionDebug) return;
+  ctx.save();
+  ctx.lineJoin='round';
+  for(const poly of arenaCollisionPolys){
+    ctx.beginPath();
+    poly.forEach((q,i)=>{ const p=worldToScreen(q.x,q.y); if(i===0)ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
+    ctx.closePath();
+    ctx.fillStyle='rgba(255,45,40,.12)'; ctx.fill();
+    ctx.strokeStyle='rgba(255,105,75,.82)'; ctx.lineWidth=1.2; ctx.stroke();
+  }
+  for(const s of arenaCollisionSegments){
+    const a=worldToScreen(s.x1,s.y1), b=worldToScreen(s.x2,s.y2);
+    ctx.strokeStyle='rgba(255,80,70,.78)'; ctx.lineWidth=Math.max(2,s.t); ctx.globalAlpha=.25;
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+    ctx.globalAlpha=.9;ctx.lineWidth=1;ctx.strokeStyle='#ff846f';
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawArenaMarkers(){
   const a=worldToScreen(arenaSpawnA.x,arenaSpawnA.y);
   drawArenaCircle(arenaSpawnA.x,arenaSpawnA.y,34,'#59b9ff',.16);
@@ -640,6 +776,7 @@ function drawWorld(){
   const minTX=Math.max(0,Math.floor(camera.x/TILE)-1), minTY=Math.max(0,Math.floor(camera.y/TILE)-1), maxTX=Math.min(MAP_W-1,Math.ceil((camera.x+W)/TILE)+1), maxTY=Math.min(MAP_H-1,Math.ceil((camera.y+H)/TILE)+1);
   if(state.mapMode==='arena'){
     drawArenaBackground();
+    drawArenaCollisionDebug();
     drawArenaMarkers();
   } else {
     for(let ty=minTY;ty<=maxTY;ty++) for(let tx=minTX;tx<=maxTX;tx++) drawGroundTile(tx,ty);
@@ -659,7 +796,7 @@ function drawWorld(){
 function drawHUD(){
   ctx.fillStyle='#06080b'; ctx.fillRect(7,7,104,12); ctx.fillStyle='#242b31'; ctx.fillRect(9,9,100,8); ctx.fillStyle=player.hp>35?'#58a968':'#ba5151'; ctx.fillRect(9,9,100*(player.hp/player.maxHp),8);
   ctx.fillStyle='#f0f2f2'; ctx.font='10px monospace'; ctx.fillText(`HP ${Math.ceil(player.hp)}/${player.maxHp}`,11,18); ctx.fillText(`УР. ${state.level}`,7,33); ctx.fillText(state.mapMode==='grass'?'ПОЛИГОН: БЕЗ ВРАГОВ':`ВОЛНА ${Math.max(1,state.wave)}  УНИЧТ. ${state.kills}`,7,46);
-  const barW=Math.min(125,W-14); ctx.fillStyle='#111519'; ctx.fillRect(7,54,barW,7); ctx.fillStyle='#d7b15e'; ctx.fillRect(8,55,(barW-2)*(state.xp/state.xpNeed),5); ctx.fillStyle='#e0d1a1'; ctx.fillText(`ДЕТАЛИ ${state.xp}/${state.xpNeed}`,7,72); ctx.fillStyle='#d9e0d3'; ctx.fillText('v0.9.10',W-38,14); if(state.noticeTimer>0){ ctx.textAlign='center'; ctx.fillStyle='#fff1a8'; ctx.font='bold 9px monospace'; ctx.fillText(state.notice,W/2,34); ctx.textAlign='left'; }
+  const barW=Math.min(125,W-14); ctx.fillStyle='#111519'; ctx.fillRect(7,54,barW,7); ctx.fillStyle='#d7b15e'; ctx.fillRect(8,55,(barW-2)*(state.xp/state.xpNeed),5); ctx.fillStyle='#e0d1a1'; ctx.fillText(`ДЕТАЛИ ${state.xp}/${state.xpNeed}`,7,72); ctx.fillStyle='#d9e0d3'; ctx.fillText('v0.9.11',W-38,14); if(state.noticeTimer>0){ ctx.textAlign='center'; ctx.fillStyle='#fff1a8'; ctx.font='bold 9px monospace'; ctx.fillText(state.notice,W/2,34); ctx.textAlign='left'; }
 }
 function drawMiniMap(){
   const mw=72,mh=41,x=W-mw-7,y=24; ctx.globalAlpha=.90; ctx.fillStyle='#17130f'; ctx.fillRect(x,y,mw,mh); ctx.strokeStyle='#d5dbc9'; ctx.lineWidth=1; ctx.strokeRect(x+.5,y+.5,mw-1,mh-1);
@@ -680,15 +817,17 @@ function drawStick(s,dx,dy,label){ const bx=s.active?s.sx:dx, by=s.active?s.sy:d
 function drawTouchControls(){ if(navigator.maxTouchPoints<=0) return; drawStick(leftStick,52,H-48,'ДВИЖЕНИЕ'); drawStick(rightStick,W-52,H-48,'ОГОНЬ'); }
 function drawActionButtons(){
   const mb=getMenuButton(); ctx.globalAlpha=.72; ctx.fillStyle='#11191a'; ctx.fillRect(mb.x,mb.y,mb.w,mb.h); ctx.strokeStyle='#93a39b'; ctx.strokeRect(mb.x+.5,mb.y+.5,mb.w-1,mb.h-1); ctx.fillStyle='#eef1eb'; ctx.font='8px monospace'; ctx.textAlign='center'; ctx.fillText('МЕНЮ',mb.x+mb.w/2,mb.y+12);
-  const fb=getFortressButton(); const active=player.mode==='fortress'||player.mode==='deploy'; ctx.fillStyle=active?'#5a4d23':'#19231d'; ctx.fillRect(fb.x,fb.y,fb.w,fb.h); ctx.strokeStyle=active?'#e1c35c':'#7f9185'; ctx.strokeRect(fb.x+.5,fb.y+.5,fb.w-1,fb.h-1); ctx.fillStyle='#f2f0df'; ctx.font='8px monospace'; const label=player.mode==='fortress'?'ПОХОДНЫЙ':(player.mode==='deploy'||player.mode==='undeploy'?'ТРАНСФОРМ...':'КРЕПОСТЬ'); ctx.fillText(label,fb.x+fb.w/2,fb.y+16); ctx.globalAlpha=1; ctx.textAlign='left';
+  const fb=getFortressButton(); const active=player.mode==='fortress'||player.mode==='deploy'; ctx.fillStyle=active?'#5a4d23':'#19231d'; ctx.fillRect(fb.x,fb.y,fb.w,fb.h); ctx.strokeStyle=active?'#e1c35c':'#7f9185'; ctx.strokeRect(fb.x+.5,fb.y+.5,fb.w-1,fb.h-1); ctx.fillStyle='#f2f0df'; ctx.font='8px monospace'; const label=player.mode==='fortress'?'ПОХОДНЫЙ':(player.mode==='deploy'||player.mode==='undeploy'?'ТРАНСФОРМ...':'КРЕПОСТЬ'); ctx.fillText(label,fb.x+fb.w/2,fb.y+16);
+  if(state.mapMode==='arena'){ const cb=getCollisionButton(); ctx.fillStyle=state.collisionDebug?'#4b241f':'#19231d'; ctx.fillRect(cb.x,cb.y,cb.w,cb.h); ctx.strokeStyle=state.collisionDebug?'#ff846f':'#7f9185'; ctx.strokeRect(cb.x+.5,cb.y+.5,cb.w-1,cb.h-1); ctx.fillStyle='#f2f0df'; ctx.font='7px monospace'; ctx.fillText(state.collisionDebug?'КОЛЛ. ON':'КОЛЛ. OFF',cb.x+cb.w/2,cb.y+12); }
+  ctx.globalAlpha=1; ctx.textAlign='left';
 }
 function drawMenu(){
   for(let y=0;y<H;y+=32) for(let x=0;x<W;x+=32) drawTileFromSheet('grass',hash(x/32,y/32)%16,x,y,32,32);
   ctx.fillStyle='rgba(5,10,8,.72)'; ctx.fillRect(0,0,W,H);
-  ctx.textAlign='center'; ctx.fillStyle='#f2f2e8'; ctx.font='bold 22px monospace'; ctx.fillText('ROBOT ARENA',W/2,48); ctx.fillStyle='#d7b85d'; ctx.font='10px monospace'; ctx.fillText('v0.9.10',W/2,65); ctx.fillStyle='#aeb8ad'; ctx.fillText('ВЫБЕРИ РЕЖИМ',W/2,88);
+  ctx.textAlign='center'; ctx.fillStyle='#f2f2e8'; ctx.font='bold 22px monospace'; ctx.fillText('ROBOT ARENA',W/2,48); ctx.fillStyle='#d7b85d'; ctx.font='10px monospace'; ctx.fillText('v0.9.11',W/2,65); ctx.fillStyle='#aeb8ad'; ctx.fillText('ВЫБЕРИ РЕЖИМ',W/2,88);
   if(H>W&&sheetImages['robotWalk']&&tileRects['robotWalk']){ const r=tileRects['robotWalk'][24]; const im=sheetImages['robotWalk']; ctx.drawImage(im,r.sx,r.sy,r.sw,r.sh,W/2-32,104,64,64); }
   for(const b of getMenuButtons()){
-    ctx.fillStyle=b.id==='grass'?'#203022':'#18231d'; ctx.fillRect(b.x,b.y,b.w,b.h); ctx.strokeStyle=b.id==='grass'?'#7da46f':'#819087'; ctx.lineWidth=1; ctx.strokeRect(b.x+.5,b.y+.5,b.w-1,b.h-1); ctx.fillStyle='#eef1eb'; ctx.font='bold 10px monospace'; ctx.fillText(b.label,b.x+b.w/2,b.y+14); ctx.fillStyle='#a8b0a8'; ctx.font='8px monospace'; if(b.id==='arena') ctx.fillText('ПУСТЫННАЯ БАЗА • ЦЕЛИ • РЕСУРСЫ',b.x+b.w/2,b.y+27); else if(b.id==='grass') ctx.fillText('ЧИСТАЯ ТРАВА ДЛЯ ТЕСТОВ',b.x+b.w/2,b.y+27); else if(b.id==='restart') ctx.fillText('СБРОСИТЬ ТЕКУЩИЙ ЗАБЕГ',b.x+b.w/2,b.y+27); else ctx.fillText('ВЕРНУТЬСЯ В ИГРУ',b.x+b.w/2,b.y+27);
+    ctx.fillStyle=b.id==='grass'?'#203022':'#18231d'; ctx.fillRect(b.x,b.y,b.w,b.h); ctx.strokeStyle=b.id==='grass'?'#7da46f':'#819087'; ctx.lineWidth=1; ctx.strokeRect(b.x+.5,b.y+.5,b.w-1,b.h-1); ctx.fillStyle='#eef1eb'; ctx.font='bold 10px monospace'; ctx.fillText(b.label,b.x+b.w/2,b.y+14); ctx.fillStyle='#a8b0a8'; ctx.font='8px monospace'; if(b.id==='arena') ctx.fillText('ПУСТЫННАЯ БАЗА • КОЛЛИЗИИ • ЦЕЛИ',b.x+b.w/2,b.y+27); else if(b.id==='grass') ctx.fillText('ЧИСТАЯ ТРАВА ДЛЯ ТЕСТОВ',b.x+b.w/2,b.y+27); else if(b.id==='restart') ctx.fillText('СБРОСИТЬ ТЕКУЩИЙ ЗАБЕГ',b.x+b.w/2,b.y+27); else ctx.fillText('ВЕРНУТЬСЯ В ИГРУ',b.x+b.w/2,b.y+27);
   }
   ctx.textAlign='left';
 }
